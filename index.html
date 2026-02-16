@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0077B6">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='90' fill='%231a1a2e'/><text x='256' y='340' text-anchor='middle' font-size='280' font-family='system-ui' font-weight='bold' fill='%230077B6'>P</text></svg>">
+<title>Padel Scorer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#1a1a2e;--surface:#16213e;--accent:#0077B6;--accent2:#00B4D8;--text:#e0e0e0;--dim:#666;--win:#00c853;--r:12px}
+html,body{height:100%;overflow:hidden}
+body{font-family:-apple-system,system-ui,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+
+/* Header */
+.hdr{display:flex;justify-content:space-between;align-items:center;padding:8px 16px}
+.hdr h1{font-size:18px;font-weight:700;color:var(--accent2)}
+.hdr-btns{display:flex;gap:8px}
+.hdr-btn{background:none;border:2px solid var(--dim);color:var(--dim);border-radius:var(--r);padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;transition:.2s}
+.hdr-btn:active{background:rgba(255,255,255,.1)}
+.hdr-btn.danger{border-color:#c62828;color:#ef5350}
+
+/* Sets row */
+.sets{display:flex;justify-content:center;gap:24px;padding:4px 0 8px;font-size:14px;color:var(--dim)}
+.sets .won{color:var(--win);font-weight:700}
+
+/* Scoreboard — panels ARE the buttons */
+.board{display:grid;grid-template-columns:1fr 40px 1fr;align-items:stretch;padding:0 16px;gap:0}
+.team-panel{text-align:center;border-radius:var(--r);padding:20px 8px;cursor:pointer;transition:transform .1s;user-select:none;-webkit-user-select:none}
+.team-panel:active{transform:scale(.95)}
+.team-panel.t1{background:var(--accent)}
+.team-panel.t2{background:#e65100}
+.team-label{font-size:14px;color:rgba(255,255,255,.8);text-transform:uppercase;letter-spacing:2px;margin-bottom:4px}
+.points{font-size:80px;font-weight:800;line-height:1;color:#fff;transition:transform .15s}
+.points.pop{transform:scale(1.15)}
+.vs{font-size:20px;color:var(--dim);display:flex;flex-direction:column;align-items:center;justify-content:center}
+
+/* Games row */
+.games{display:flex;justify-content:center;gap:6px;padding:12px 0 8px;flex-wrap:wrap}
+.set-games{display:flex;align-items:center;gap:2px;background:var(--surface);border-radius:8px;padding:4px 10px;font-size:16px;font-weight:600}
+.set-games.current{border:2px solid var(--accent)}
+.set-games .g{min-width:14px;text-align:center}
+.set-games .sep{color:var(--dim);margin:0 4px}
+
+/* No separate score buttons — panels are the buttons */
+
+/* Mic */
+.mic-row{display:flex;justify-content:center;padding:4px 0}
+.mic-btn{width:56px;height:56px;border-radius:50%;border:3px solid var(--accent);background:transparent;color:var(--accent);font-size:24px;cursor:pointer;transition:.2s;display:flex;align-items:center;justify-content:center}
+.mic-btn.on{background:var(--accent);color:#fff;box-shadow:0 0 20px rgba(0,119,182,.5);animation:pulse 1.5s infinite}
+.mic-btn.unavail{opacity:.3;pointer-events:none}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px rgba(0,119,182,.3)}50%{box-shadow:0 0 30px rgba(0,119,182,.7)}}
+
+/* History */
+.history{flex:1;overflow-y:auto;padding:8px 16px;-webkit-overflow-scrolling:touch}
+.history h3{font-size:13px;color:var(--dim);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
+.log{display:flex;flex-direction:column-reverse;gap:3px}
+.log-item{font-size:13px;color:var(--dim);padding:3px 8px;border-radius:6px;background:var(--surface)}
+.log-item b{color:var(--text)}
+
+/* Match over overlay */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:99;display:none}
+.overlay.show{display:flex}
+.overlay h2{font-size:48px;font-weight:900;color:var(--win);margin-bottom:16px}
+.overlay p{font-size:20px;color:var(--text);margin-bottom:32px}
+.overlay button{padding:16px 48px;border:none;border-radius:var(--r);background:var(--accent);color:#fff;font-size:20px;font-weight:700;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>🎾 Padel</h1>
+  <div class="hdr-btns">
+    <button class="hdr-btn" id="undoBtn" onclick="undo()">↩ Undo</button>
+    <button class="hdr-btn danger" onclick="newMatch()">New</button>
+  </div>
+</div>
+
+<div class="sets" id="setsRow"></div>
+
+<div class="board">
+  <div class="team-panel" id="panelLeft" onclick="pointLeft()">
+    <div class="team-label" id="labelLeft">Team 1 🎾</div>
+    <div class="points" id="pLeft">0</div>
+  </div>
+  <div class="vs">
+    <div id="servInd" style="font-size:11px;color:var(--accent2);margin-bottom:6px">serving</div>
+    <span>—</span>
+  </div>
+  <div class="team-panel" id="panelRight" onclick="pointRight()">
+    <div class="team-label" id="labelRight">Team 2</div>
+    <div class="points" id="pRight">0</div>
+  </div>
+</div>
+
+<div class="games" id="gamesRow"></div>
+
+<div class="mic-row">
+  <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎤</button>
+</div>
+
+<div class="history">
+  <h3>Point Log</h3>
+  <div class="log" id="log"></div>
+</div>
+
+<div class="overlay" id="overlay">
+  <h2 id="winner"></h2>
+  <p id="finalScore"></p>
+  <button onclick="newMatch()">New Match</button>
+</div>
+
+<script>
+// State
+let S;
+const POINTS = ['0','15','30','40'];
+
+function init() {
+  S = {
+    sets: [{t1:0,t2:0}],
+    points: {t1:0, t2:0},
+    setsWon: {t1:0, t2:0},
+    tiebreak: false,
+    deuce: false,
+    advantage: null,
+    serving: 't1',              // who is serving
+    tbServeCount: 0,            // tiebreak serve rotation counter
+    history: [],
+    log: [],
+    matchOver: false
+  };
+  render();
+}
+
+function snap() {
+  return JSON.parse(JSON.stringify({sets:S.sets,points:S.points,setsWon:S.setsWon,tiebreak:S.tiebreak,deuce:S.deuce,advantage:S.advantage,serving:S.serving,tbServeCount:S.tbServeCount,log:S.log}));
+}
+
+function restore(s) {
+  Object.assign(S, s);
+  S.matchOver = false;
+}
+
+function other(t) { return t === 't1' ? 't2' : 't1'; }
+function teamName(t) { return t === 't1' ? 'Team 1' : 'Team 2'; }
+
+// Left panel = server, right panel = returner
+function pointLeft() { point(S.serving); }
+function pointRight() { point(other(S.serving)); }
+
+function point(team) {
+  if (S.matchOver) return;
+  S.history.push(snap());
+
+  if (S.tiebreak) {
+    tiebreakPoint(team);
+  } else {
+    regularPoint(team);
+  }
+  render();
+}
+
+function regularPoint(team) {
+  const opp = other(team);
+  const tp = S.points[team], op = S.points[opp];
+
+  if (S.deuce) {
+    if (S.advantage === team) {
+      addLog(team, 'Game');
+      winGame(team);
+    } else if (S.advantage === opp) {
+      S.advantage = null;
+      addLog(team, 'Deuce');
+    } else {
+      S.advantage = team;
+      addLog(team, 'Advantage');
+    }
+    return;
+  }
+
+  if (tp >= 3 && op >= 3) {
+    S.deuce = true;
+    S.advantage = team;
+    addLog(team, 'Advantage');
+    return;
+  }
+
+  if (tp >= 3) {
+    addLog(team, 'Game');
+    winGame(team);
+    return;
+  }
+
+  S.points[team]++;
+  addLog(team, POINTS[S.points[team]]);
+}
+
+function tiebreakPoint(team) {
+  S.points[team]++;
+  S.tbServeCount++;
+  // Tiebreak serve rotation: first point then every 2
+  if (S.tbServeCount === 1 || (S.tbServeCount > 1 && (S.tbServeCount - 1) % 2 === 0)) {
+    S.serving = other(S.serving);
+  }
+  addLog(team, `${S.points.t1}-${S.points.t2}`);
+
+  if (S.points[team] >= 7 && S.points[team] - S.points[other(team)] >= 2) {
+    winGame(team);
+  }
+}
+
+function winGame(team) {
+  const ci = S.sets.length - 1;
+  S.sets[ci][team]++;
+  S.points = {t1:0, t2:0};
+  S.deuce = false;
+  S.advantage = null;
+
+  const g = S.sets[ci];
+  if (S.tiebreak) {
+    S.tiebreak = false;
+    S.tbServeCount = 0;
+    // After tiebreak, the other team serves first in new set
+    S.serving = other(S.serving);
+    winSet(team);
+  } else if (g[team] >= 6 && g[team] - g[other(team)] >= 2) {
+    S.serving = other(S.serving);
+    winSet(team);
+  } else if (g.t1 === 6 && g.t2 === 6) {
+    S.serving = other(S.serving);
+    S.tiebreak = true;
+    S.tbServeCount = 0;
+  } else {
+    // Normal game end — alternate serve
+    S.serving = other(S.serving);
+  }
+}
+
+function winSet(team) {
+  S.setsWon[team]++;
+  if (S.setsWon[team] >= 2) {
+    S.matchOver = true;
+    showOverlay(team);
+    return;
+  }
+  S.sets.push({t1:0, t2:0});
+}
+
+function addLog(team, txt) {
+  const ci = S.sets.length - 1;
+  const g = S.sets[ci];
+  // Log score as server-first
+  const serverScore = pointDisplay(S.serving);
+  const returnerScore = pointDisplay(other(S.serving));
+  S.log.push({team, txt, set: ci+1, games: `${g.t1}-${g.t2}`, serving: S.serving});
+}
+
+function showOverlay(team) {
+  const o = document.getElementById('overlay');
+  o.classList.add('show');
+  document.getElementById('winner').textContent = team === 't1' ? '🏆 Team 1 Wins!' : '🏆 Team 2 Wins!';
+  const sc = S.sets.map(s => `${s.t1}-${s.t2}`).join('  ');
+  document.getElementById('finalScore').textContent = sc;
+}
+
+function undo() {
+  if (!S.history.length) return;
+  restore(S.history.pop());
+  document.getElementById('overlay').classList.remove('show');
+  render();
+}
+
+function newMatch() {
+  document.getElementById('overlay').classList.remove('show');
+  init();
+}
+
+function pointDisplay(team) {
+  if (S.tiebreak) return String(S.points[team]);
+  if (S.deuce) {
+    if (S.advantage === team) return 'AD';
+    if (S.advantage === other(team)) return '40';
+    return '40';
+  }
+  return POINTS[S.points[team]] || '40';
+}
+
+function render() {
+  // Server's score always shown on left
+  const srv = S.serving;
+  const ret = other(srv);
+
+  const pL = document.getElementById('pLeft');
+  const pR = document.getElementById('pRight');
+  pL.textContent = pointDisplay(srv);
+  pR.textContent = pointDisplay(ret);
+  pop(pL); pop(pR);
+
+  // Labels — server on left with ball indicator
+  document.getElementById('labelLeft').innerHTML = teamName(srv) + ' 🎾';
+  document.getElementById('labelRight').textContent = teamName(ret);
+
+  // Panel colours follow the team, not the position
+  const pnL = document.getElementById('panelLeft');
+  const pnR = document.getElementById('panelRight');
+  pnL.className = 'team-panel ' + srv;
+  pnR.className = 'team-panel ' + ret;
+
+  // Serve indicator
+  document.getElementById('servInd').textContent = 'serving';
+
+  // Sets won
+  document.getElementById('setsRow').innerHTML =
+    `Sets: <span class="${S.setsWon.t1 >= 2 ? 'won' : ''}">${S.setsWon.t1}</span> — <span class="${S.setsWon.t2 >= 2 ? 'won' : ''}">${S.setsWon.t2}</span>` +
+    (S.tiebreak ? ' &nbsp;🔸 Tiebreak' : '');
+
+  // Games
+  let gh = '';
+  S.sets.forEach((s, i) => {
+    const cur = i === S.sets.length - 1 ? ' current' : '';
+    gh += `<div class="set-games${cur}"><span class="g">${s.t1}</span><span class="sep">-</span><span class="g">${s.t2}</span></div>`;
+  });
+  document.getElementById('gamesRow').innerHTML = gh;
+
+  // Log
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = S.log.slice().reverse().map(e =>
+    `<div class="log-item"><b>${teamName(e.team)}</b> ${e.txt} <span style="float:right">S${e.set} (${e.games})</span></div>`
+  ).join('');
+
+  // Undo btn
+  document.getElementById('undoBtn').style.opacity = S.history.length ? 1 : .3;
+}
+
+function pop(el) {
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.classList.add('pop');
+  setTimeout(() => el.classList.remove('pop'), 200);
+}
+
+// Voice — Web Speech API requires HTTPS (won't work from file:// or Dropbox local files)
+let recognition = null, listening = false;
+const micBtn = document.getElementById('micBtn');
+
+function initSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { micBtn.classList.add('unavail'); micBtn.title = 'Speech not supported'; return; }
+  if (location.protocol === 'file:') {
+    micBtn.classList.add('unavail');
+    micBtn.title = 'Mic requires HTTPS — add to home screen or serve via HTTPS';
+    return;
+  }
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (!e.results[i].isFinal) continue;
+      const t = e.results[i][0].transcript.toLowerCase().trim();
+      if (/\b(one|team\s*1|first|nuestro|nosotros)\b/.test(t)) point('t1');
+      else if (/\b(two|team\s*2|second|suyo|ellos)\b/.test(t)) point('t2');
+    }
+  };
+  recognition.onerror = (e) => {
+    console.log('Speech error:', e.error);
+    if (e.error === 'not-allowed') {
+      micBtn.classList.add('unavail');
+      micBtn.title = 'Microphone permission denied';
+    }
+    listening = false;
+    micBtn.classList.remove('on');
+  };
+  recognition.onend = () => { if (listening) { try { recognition.start(); } catch(e){} } };
+}
+
+function toggleMic() {
+  if (!recognition) return;
+  if (listening) {
+    listening = false;
+    recognition.stop();
+    micBtn.classList.remove('on');
+  } else {
+    listening = true;
+    try { recognition.start(); } catch(e) { listening = false; return; }
+    micBtn.classList.add('on');
+  }
+}
+
+initSpeech();
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
