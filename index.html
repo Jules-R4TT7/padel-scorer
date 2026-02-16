@@ -171,12 +171,15 @@ function regularPoint(team) {
     if (S.advantage === team) {
       addLog(team, 'Game');
       winGame(team);
+      announceGame();
     } else if (S.advantage === opp) {
       S.advantage = null;
       addLog(team, 'Deuce');
+      announceScore();
     } else {
       S.advantage = team;
       addLog(team, 'Advantage');
+      announceScore();
     }
     return;
   }
@@ -185,17 +188,20 @@ function regularPoint(team) {
     S.deuce = true;
     S.advantage = team;
     addLog(team, 'Advantage');
+    announceScore();
     return;
   }
 
   if (tp >= 3) {
     addLog(team, 'Game');
     winGame(team);
+    announceGame();
     return;
   }
 
   S.points[team]++;
   addLog(team, POINTS[S.points[team]]);
+  announceScore();
 }
 
 function tiebreakPoint(team) {
@@ -206,9 +212,11 @@ function tiebreakPoint(team) {
     S.serving = other(S.serving);
   }
   addLog(team, `${S.points.t1}-${S.points.t2}`);
+  announceScore();
 
   if (S.points[team] >= 7 && S.points[team] - S.points[other(team)] >= 2) {
     winGame(team);
+    announceGame();
   }
 }
 
@@ -241,8 +249,12 @@ function winGame(team) {
 
 function winSet(team) {
   S.setsWon[team]++;
+  announceSet(team);
   if (S.setsWon[team] >= 2) {
     S.matchOver = true;
+    setTimeout(() => {
+      speak(`Match. ${teamName(team)} wins`);
+    }, 1500);
     showOverlay(team);
     return;
   }
@@ -345,6 +357,46 @@ function pop(el) {
 // Voice — Web Speech API requires HTTPS (won't work from file:// or Dropbox local files)
 let recognition = null, listening = false;
 const micBtn = document.getElementById('micBtn');
+
+// TTS — announce scores
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.1;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  speechSynthesis.cancel(); // Cancel any ongoing speech
+  speechSynthesis.speak(utterance);
+}
+
+function announceScore() {
+  const srv = S.serving;
+  const ret = other(srv);
+  const srvScore = pointDisplay(srv);
+  const retScore = pointDisplay(ret);
+  
+  if (S.tiebreak) {
+    speak(`${srvScore} ${retScore}`);
+  } else if (S.deuce && S.advantage) {
+    speak(`Advantage ${teamName(S.advantage)}`);
+  } else if (S.deuce && !S.advantage) {
+    speak('Deuce');
+  } else {
+    speak(`${srvScore} ${retScore}`);
+  }
+}
+
+function announceGame() {
+  const ci = S.sets.length - 1;
+  const g = S.sets[ci];
+  speak(`Game. ${g.t1} ${g.t2}`);
+}
+
+function announceSet(team) {
+  const si = S.sets.length - 2; // Just completed set
+  const s = S.sets[si];
+  speak(`Set ${teamName(team)}. ${s.t1} ${s.t2}`);
+}
 
 function initSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
