@@ -382,7 +382,16 @@ function announceScore() {
   } else if (S.deuce && !S.advantage) {
     speak('Deuce');
   } else {
-    speak(`${srvScore} ${retScore}`);
+    // Convert to tennis language
+    const srvWord = srvScore === '0' ? 'Love' : (srvScore === '15' ? 'Fifteen' : (srvScore === '30' ? 'Thirty' : 'Forty'));
+    const retWord = retScore === '0' ? 'Love' : (retScore === '15' ? 'Fifteen' : (retScore === '30' ? 'Thirty' : 'Forty'));
+    
+    if (srvScore === retScore) {
+      // Equal scores: "fifteen all", "thirty all"
+      speak(`${srvWord} all`);
+    } else {
+      speak(`${srvWord} ${retWord}`);
+    }
   }
 }
 
@@ -395,7 +404,9 @@ function announceGame() {
 function announceSet(team) {
   const si = S.sets.length - 2; // Just completed set
   const s = S.sets[si];
-  speak(`Set ${teamName(team)}. ${s.t1} ${s.t2}`);
+  const teamGames = s[team];
+  const oppGames = s[other(team)];
+  speak(`Set ${teamName(team)}, ${teamGames} games to ${oppGames}`);
 }
 
 function initSpeech() {
