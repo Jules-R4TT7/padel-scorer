@@ -171,7 +171,6 @@ function regularPoint(team) {
     if (S.advantage === team) {
       addLog(team, 'Game');
       winGame(team);
-      announceGame();
     } else if (S.advantage === opp) {
       S.advantage = null;
       addLog(team, 'Deuce');
@@ -187,7 +186,6 @@ function regularPoint(team) {
   if (tp >= 3) {
     addLog(team, 'Game');
     winGame(team);
-    announceGame();
     return;
   }
 
@@ -218,7 +216,6 @@ function tiebreakPoint(team) {
 
   if (S.points[team] >= 7 && S.points[team] - S.points[other(team)] >= 2) {
     winGame(team);
-    announceGame();
   }
 }
 
@@ -230,6 +227,15 @@ function winGame(team) {
   S.advantage = null;
 
   const g = S.sets[ci];
+  
+  // Check if this game wins the set
+  const setWon = S.tiebreak || (g[team] >= 6 && g[team] - g[other(team)] >= 2);
+  
+  if (!setWon) {
+    // Normal game — announce the game score
+    announceGame();
+  }
+  
   if (S.tiebreak) {
     S.tiebreak = false;
     S.tbServeCount = 0;
