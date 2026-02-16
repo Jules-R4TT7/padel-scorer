@@ -184,14 +184,6 @@ function regularPoint(team) {
     return;
   }
 
-  if (tp >= 3 && op >= 3) {
-    S.deuce = true;
-    S.advantage = team;
-    addLog(team, 'Advantage');
-    announceScore();
-    return;
-  }
-
   if (tp >= 3) {
     addLog(team, 'Game');
     winGame(team);
@@ -200,6 +192,16 @@ function regularPoint(team) {
   }
 
   S.points[team]++;
+  
+  // Check if we just reached deuce (40-40)
+  if (S.points[team] >= 3 && S.points[opp] >= 3) {
+    S.deuce = true;
+    S.advantage = null;
+    addLog(team, 'Deuce');
+    announceScore();
+    return;
+  }
+  
   addLog(team, POINTS[S.points[team]]);
   announceScore();
 }
@@ -402,11 +404,11 @@ function announceGame() {
 }
 
 function announceSet(team) {
-  const si = S.sets.length - 2; // Just completed set
+  const si = S.sets.length - 1; // Current set (just completed)
   const s = S.sets[si];
   const teamGames = s[team];
   const oppGames = s[other(team)];
-  speak(`Set ${teamName(team)}, ${teamGames} games to ${oppGames}`);
+  speak(`Set to ${teamName(team)}, ${teamGames} games to ${oppGames}`);
 }
 
 function initSpeech() {
